@@ -1,5 +1,14 @@
 const STORAGE_KEY = "sarispinRequests";
 
+
+const SUPABASE_URL = "https://lpvxbiofludgvnwidzik.supabase.co";
+const SUPABASE_KEY = "sb_publishable_ha6VbkFzDoNqJNsp_6gB2g_SfCNe8sm";
+
+const db = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_KEY
+);
+
 // GENERAL HELPERS
 
 function getRequests() {
