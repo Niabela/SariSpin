@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SariSpin Owner Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
+</head>
+
+<body class="admin-page">
+
+    <header class="admin-navbar">
+        <a class="logo" href="index.html">SariSpin<span>.</span></a>
+
+        <div class="admin-nav-right">
+            <span>Owner Dashboard</span>
+            <a href="index.html" class="back-link">View Website ↗</a>
+        </div>
+    </header>
+
+    <main class="dashboard-container">
+        <section class="dashboard-heading">
+            <div>
+                <p class="eyebrow">SARISPIN MANAGEMENT</p>
+                <h1>Owner Dashboard</h1>
+                <p>Review requests and keep track of completed laundry services.</p>
+            </div>
+
+            <button type="button" id="refreshRequests" class="button button-secondary">
+                ↻ Refresh
+            </button>
+        </section>
+
+        <section class="stats-grid">
+            <article class="stat-card">
+                <p>Incoming Requests</p>
+                <h2 id="newCount">0</h2>
+                <span>Requests not yet completed</span>
+            </article>
+
+            <article class="stat-card">
+                <p>Completed Today</p>
+                <h2 id="completedCount">0</h2>
+                <span>Marked completed today</span>
+            </article>
+        </section>
+
+        <p id="adminMessage" class="admin-message" role="status"></p>
+
+        <section class="dashboard-section">
+            <div class="dashboard-section-heading">
+                <div>
+                    <h2>Incoming Requests</h2>
+                    <p>Review the details and contact customers using your phone.</p>
+                </div>
+            </div>
+
+            <div id="requestList" class="request-list">
+                <p class="empty-state">Loading requests...</p>
+            </div>
+        </section>
+
+        <section class="dashboard-section completed-heading">
+            <div class="dashboard-section-heading">
+                <div>
+                    <h2>Completed Today</h2>
+                    <p>Requests your family has marked as completed today.</p>
+                </div>
+            </div>
+
+            <div id="completedList" class="request-list">
+                <p class="empty-state">Loading completed requests...</p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer dashboard-footer">
+        <a class="logo footer-logo" href="index.html">SariSpin<span>.</span></a>
+        <p>Keep your laundry service organized.</p>
+        <p><a href="privacy.html">Privacy Policy</a></p>
+    </footer>
+
+</body>
+
+</html>
