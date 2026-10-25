@@ -1,5 +1,3 @@
-const STORAGE_KEY = "sarispinRequests";
-
 
 const SUPABASE_URL = "https://lpvxbiofludgvnwidzik.supabase.co";
 const SUPABASE_KEY = "sb_publishable_ha6VbkFzDoNqJNsp_6gB2g_SfCNe8sm";
@@ -9,59 +7,62 @@ const db = window.supabase.createClient(
     SUPABASE_KEY
 );
 
-// GENERAL HELPERS
+const BUSINESS_PHONE = "0966 210 8254";
 
-function getRequests() {
-    try {
-        const savedRequests = localStorage.getItem(STORAGE_KEY);
-
-        if (!savedRequests) {
-            return [];
-        }
-
-        const parsedRequests = JSON.parse(savedRequests);
-
-        return Array.isArray(parsedRequests) ? parsedRequests : [];
-    } catch (error) {
-        console.error("Could not load laundry requests:", error);
-        return [];
-    }
-}
-
-function saveRequests(requests) {
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(requests));
-        return true;
-    } catch (error) {
-        console.error("Could not save laundry requests:", error);
-        return false;
-    }
-}
+// ==================================================
+// GENERAL HELPER FUNCTIONS
+// ==================================================
 
 function escapeHTML(value) {
     return String(value ?? "").replace(/[&<>"']/g, function (character) {
-        const replacements = {
+        const entities = {
             "&": "&amp;",
             "<": "&lt;",
             ">": "&gt;",
             '"': "&quot;",
-            "'": "&#039;"
+            "'": "&#39;"
         };
 
-        return replacements[character];
+        return entities[character];
     });
 }
 
-function serviceName(service) {
-    if (service === "pickup") {
-        return "Pickup and Delivery";
+function formatDate(dateValue) {
+    if (!dateValue) {
+        return "Not specified";
     }
 
-    if (service === "dropoff") {
-        return "Drop-off and Self-Collection";
+    const date = new Date(dateValue + "T00:00:00");
+
+    if (Number.isNaN(date.getTime())) {
+        return escapeHTML(dateValue);
     }
 
-    return "Unspecified Service";
+    return date.toLocaleDateString("en-PH", {
+        month: "long",
+        day: "numeric",
+        year: "numeric"
+    });
+}
+
+function formatDateTime(dateValue) {
+    if (!dateValue) {
+        return "Not specified";
+    }
+
+    const date = new Date(dateValue);
+
+    if (Number.isNaN(date.getTime())) {
+        return "Not specified";
+    }
+
+    return date.toLocaleString("en-PH", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+    });
 }
 
 function getLocalDate() {
@@ -73,42 +74,15 @@ function getLocalDate() {
     return `${year}-${month}-${day}`;
 }
 
-function formatDate(dateString) {
-    if (!dateString) {
-        return "Not provided";
-    }
-
-    const date = new Date(`${dateString}T12:00:00`);
-
-    if (Number.isNaN(date.getTime())) {
-        return dateString;
-    }
-
-    return date.toLocaleDateString("en-PH", {
-        year: "numeric",
-        month: "long",
-        day: "numeric"
-    });
+function serviceName(serviceType) {
+    return serviceType === "pickup"
+        ? "Pickup and Delivery"
+        : "Drop-off and Self-Collection";
 }
 
-function formatDateTime(dateString) {
-    if (!dateString) {
-        return "Not recorded";
-    }
-
-    const date = new Date(dateString);
-
-    if (Number.isNaN(date.getTime())) {
-        return "Not recorded";
-    }
-
-    return date.toLocaleString("en-PH", {
-        dateStyle: "medium",
-        timeStyle: "short"
-    });
-}
-
+// ==================================================
 // CUSTOMER BOOKING FORM
+// ==================================================
 
 function setupBookingForm() {
     const bookingForm = document.getElementById("bookingForm");
@@ -117,61 +91,89 @@ function setupBookingForm() {
         return;
     }
 
-    const serviceType = document.getElementById("serviceType");
+    const customerNameInput = document.getElementById("customerName");
+    const customerPhoneInput = document.getElementById("customerPhone");
+    const serviceTypeInput = document.getElementById("serviceType");
     const addressGroup = document.getElementById("addressGroup");
-    const customerAddress = document.getElementById("customerAddress");
-    const preferredDate = document.getElementById("preferredDate");
+    const customerAddressInput = document.getElementById("customerAddress");
+    const preferredDateInput = document.getElementById("preferredDate");
+    const customerNotesInput = document.getElementById("customerNotes");
+    const customerConsentInput = document.getElementById("customerConsent");
     const formMessage = document.getElementById("formMessage");
 
-    preferredDate.min = getLocalDate();
+    const submitButton = bookingForm.querySelector(
+        'button[type="submit"]'
+    );
+
+    // Do not allow a requested date in the past.
+    if (preferredDateInput) {
+        preferredDateInput.min = getLocalDate();
+    }
+
+    function showFormMessage(message, type) {
+        if (!formMessage) {
+            return;
+        }
+
+        formMessage.textContent = message;
+        formMessage.className = `form-message ${type}`;
+        formMessage.hidden = false;
+    }
 
     function updateAddressField() {
-        const pickupSelected = serviceType.value === "pickup";
+        if (!serviceTypeInput || !addressGroup || !customerAddressInput) {
+            return;
+        }
 
-        addressGroup.hidden = !pickupSelected;
-        customerAddress.required = pickupSelected;
+        const needsAddress = serviceTypeInput.value === "pickup";
 
-        if (!pickupSelected) {
-            customerAddress.value = "";
+        addressGroup.hidden = !needsAddress;
+        customerAddressInput.required = needsAddress;
+
+        if (!needsAddress) {
+            customerAddressInput.value = "";
         }
     }
 
-    serviceType.addEventListener("change", updateAddressField);
+    if (serviceTypeInput) {
+        serviceTypeInput.addEventListener("change", function () {
+            updateAddressField();
+
+            if (formMessage) {
+                formMessage.hidden = true;
+            }
+        });
+    }
+
     updateAddressField();
 
-    bookingForm.addEventListener("submit", function (event) {
+    bookingForm.addEventListener("submit", async function (event) {
         event.preventDefault();
 
-        formMessage.textContent = "";
-        formMessage.className = "form-message";
+        if (formMessage) {
+            formMessage.hidden = true;
+        }
 
-        const customerName = document
-            .getElementById("customerName")
-            .value.trim();
+        const customerName = customerNameInput.value.trim();
+        const customerPhone = customerPhoneInput.value.trim();
+        const selectedService = serviceTypeInput.value;
+        const address = customerAddressInput.value.trim();
+        const requestedDate = preferredDateInput.value;
+        const notes = customerNotesInput
+            ? customerNotesInput.value.trim()
+            : "";
 
-        const customerPhone = document
-            .getElementById("customerPhone")
-            .value.trim();
-
-        const selectedService = serviceType.value;
-        const address = customerAddress.value.trim();
-        const requestedDate = preferredDate.value;
-
-        const notes = document
-            .getElementById("customerNotes")
-            .value.trim();
-
-        const consent = document.getElementById("customerConsent").checked;
-
-        if (
-            !customerName ||
-            !customerPhone ||
-            !selectedService ||
-            !requestedDate ||
-            !consent
-        ) {
+        if (!customerName || !customerPhone || !requestedDate) {
             showFormMessage(
-                "Please complete all required fields and confirm your information.",
+                "Please complete all required fields.",
+                "error"
+            );
+            return;
+        }
+
+        if (!["pickup", "dropoff"].includes(selectedService)) {
+            showFormMessage(
+                "Please select a valid laundry service.",
                 "error"
             );
             return;
@@ -179,7 +181,7 @@ function setupBookingForm() {
 
         if (selectedService === "pickup" && !address) {
             showFormMessage(
-                "Please enter your address for pickup and delivery.",
+                "Please enter your pickup and delivery address.",
                 "error"
             );
             return;
@@ -187,61 +189,86 @@ function setupBookingForm() {
 
         if (requestedDate < getLocalDate()) {
             showFormMessage(
-                "Please choose today or a future date.",
+                "Please select today or a future preferred date.",
                 "error"
             );
             return;
         }
 
-        const requestId =
-            Date.now().toString() +
-            Math.random().toString(36).slice(2, 8);
-
-        const newRequest = {
-            id: requestId,
-            name: customerName,
-            phone: customerPhone,
-            service: selectedService,
-            preferredDate: requestedDate,
-            address: selectedService === "pickup" ? address : "",
-            notes: notes,
-            status: "New Request",
-            createdAt: new Date().toISOString(),
-            completedAt: null
-        };
-
-        const requests = getRequests();
-
-        requests.unshift(newRequest);
-
-        if (!saveRequests(requests)) {
+        if (
+            customerConsentInput &&
+            !customerConsentInput.checked
+        ) {
             showFormMessage(
-                "Your request could not be saved. Please call or text SariSpin at 0966 210 8254.",
+                "Please confirm the privacy notice before submitting.",
                 "error"
             );
             return;
         }
 
-        bookingForm.reset();
-        updateAddressField();
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.textContent = "Submitting...";
+        }
 
-        showFormMessage(
-            "Your request has been submitted successfully! SariSpin will contact you to confirm your preferred date.",
-            "success"
-        );
+        try {
+            const { error } = await db
+                .from("laundry_requests")
+                .insert({
+                    customer_name: customerName,
+                    customer_phone: customerPhone,
+                    service_type: selectedService,
+                    customer_address:
+                        selectedService === "pickup" ? address : null,
+                    preferred_date: requestedDate,
+                    customer_notes: notes || null,
+                    status: "new"
+                });
+
+            if (error) {
+                console.error("Supabase booking error:", error);
+
+                showFormMessage(
+                    "Your request could not be submitted. Please try again or call/text SariSpin at " +
+                    BUSINESS_PHONE + ".",
+                    "error"
+                );
+
+                return;
+            }
+
+            bookingForm.reset();
+            updateAddressField();
+
+            showFormMessage(
+                "Your request has been submitted successfully! SariSpin will contact you to confirm your preferred date.",
+                "success"
+            );
+        } catch (error) {
+            console.error("Booking submission error:", error);
+
+            showFormMessage(
+                "Something went wrong. Please try again or call/text SariSpin at " +
+                BUSINESS_PHONE + ".",
+                "error"
+            );
+        } finally {
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = "Submit Request";
+            }
+        }
     });
-
-    function showFormMessage(message, type) {
-        formMessage.textContent = message;
-        formMessage.className = `form-message ${type}`;
-    }
 }
 
+// ==================================================
 // OWNER DASHBOARD
+// ==================================================
 
 function setupAdminDashboard() {
     const requestList = document.getElementById("requestList");
 
+    // Do not run dashboard code on the customer page.
     if (!requestList) {
         return;
     }
@@ -252,290 +279,267 @@ function setupAdminDashboard() {
     const adminMessage = document.getElementById("adminMessage");
     const refreshButton = document.getElementById("refreshRequests");
 
-    function getDateFromTimestamp(timestamp) {
-        const date = new Date(timestamp);
-
-        if (Number.isNaN(date.getTime())) {
-            return "";
-        }
-
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const day = String(date.getDate()).padStart(2, "0");
-
-        return `${year}-${month}-${day}`;
-    }
-
-    function renderDashboard() {
-        const requests = getRequests();
-        const today = getLocalDate();
-
-        const incomingRequests = requests.filter(function (request) {
-            return request.status !== "Completed";
-        });
-
-        const completedToday = requests.filter(function (request) {
-            return (
-                request.status === "Completed" &&
-                request.completedAt &&
-                getDateFromTimestamp(request.completedAt) === today
-            );
-        });
-
-        newCount.textContent = incomingRequests.length;
-        completedCount.textContent = completedToday.length;
-
-        renderIncomingRequests(incomingRequests);
-        renderCompletedRequests(completedToday);
-    }
-
-    // INCOMING REQUESTS
-
-    function renderIncomingRequests(requests) {
-        if (requests.length === 0) {
-            requestList.innerHTML = `
-                <p class="empty-state">No incoming requests yet.</p>
-            `;
+    function showAdminMessage(message, type = "") {
+        if (!adminMessage) {
             return;
         }
 
-        requestList.innerHTML = requests.map(function (request) {
-            const safeId = escapeHTML(request.id);
-            const safeName = escapeHTML(request.name);
-            const safePhone = escapeHTML(request.phone);
-            const safeService = escapeHTML(serviceName(request.service));
-            const safeDate = escapeHTML(formatDate(request.preferredDate));
-            const safeAddress = escapeHTML(
-                request.address || "Not applicable"
-            );
-            const safeNotes = escapeHTML(
-                request.notes || "No additional notes"
-            );
-            const safeCreated = escapeHTML(
-                formatDateTime(request.createdAt)
-            );
-
-            return `
-                <article class="request-card">
-                    <h3>${safeName}</h3>
-                    <p class="request-date">
-                        Submitted: ${safeCreated}
-                    </p>
-
-                    <div class="request-details">
-                        <div class="request-detail">
-                            <strong>Mobile number</strong>
-                            <span>${safePhone}</span>
-                        </div>
-
-                        <div class="request-detail">
-                            <strong>Service</strong>
-                            <span>${safeService}</span>
-                        </div>
-
-                        <div class="request-detail">
-                            <strong>Preferred date</strong>
-                            <span>${safeDate}</span>
-                        </div>
-
-                        <div class="request-detail">
-                            <strong>Address</strong>
-                            <span>${safeAddress}</span>
-                        </div>
-
-                        <div class="request-detail">
-                            <strong>Additional notes</strong>
-                            <span>${safeNotes}</span>
-                        </div>
-                    </div>
-
-                    <div class="request-actions">
-                        <button
-                            type="button"
-                            class="button button-primary"
-                            data-complete-id="${safeId}"
-                        >
-                            Mark as Completed
-                        </button>
-
-                        <button
-                            type="button"
-                            class="button button-secondary"
-                            data-delete-id="${safeId}"
-                        >
-                            Delete Request
-                        </button>
-                    </div>
-                </article>
-            `;
-        }).join("");
+        adminMessage.textContent = message;
+        adminMessage.className = `admin-message ${type}`;
     }
 
-    // COMPLETED REQUESTS
+    function renderRequestCard(request, isCompleted) {
+        const service = serviceName(request.service_type);
 
-    function renderCompletedRequests(requests) {
-        if (requests.length === 0) {
-            completedList.innerHTML = `
-                <p class="empty-state">
-                    No requests marked as completed today.
-                </p>
-            `;
-            return;
+        const addressHTML = request.customer_address
+            ? `<p><strong>Address:</strong> ${escapeHTML(request.customer_address)}</p>`
+            : "";
+
+        const notesHTML = request.customer_notes
+            ? `<p><strong>Notes:</strong> ${escapeHTML(request.customer_notes)}</p>`
+            : "";
+
+        const completeButton = isCompleted
+            ? ""
+            : `<button type="button" class="complete-button" data-action="complete" data-id="${request.id}">Mark as Completed</button>`;
+
+        const completedAtHTML = isCompleted && request.completed_at
+            ? `<p><strong>Completed:</strong> ${escapeHTML(formatDateTime(request.completed_at))}</p>`
+            : "";
+
+        return `
+            <article class="request-card">
+                <div class="request-card-header">
+                    <h3>${escapeHTML(request.customer_name)}</h3>
+                    <span class="request-status ${isCompleted ? "completed" : "new"}">
+                        ${isCompleted ? "Completed" : "New Request"}
+                    </span>
+                </div>
+
+                <div class="request-details">
+                    <p><strong>Phone:</strong> ${escapeHTML(request.customer_phone)}</p>
+                    <p><strong>Service:</strong> ${escapeHTML(service)}</p>
+                    <p><strong>Preferred date:</strong> ${escapeHTML(formatDate(request.preferred_date))}</p>
+                    ${addressHTML}
+                    ${notesHTML}
+                    <p><strong>Request received:</strong> ${escapeHTML(formatDateTime(request.created_at))}</p>
+                    ${completedAtHTML}
+                </div>
+
+                <div class="request-actions">
+                    ${completeButton}
+                    <button type="button" class="delete-button" data-action="delete" data-id="${request.id}">Delete Request</button>
+                </div>
+            </article>
+        `;
+    }
+
+    function renderEmptyMessage(message) {
+        return `<p class="empty-state">${escapeHTML(message)}</p>`;
+    }
+
+    async function renderDashboard() {
+        showAdminMessage("Loading requests...");
+
+        if (refreshButton) {
+            refreshButton.disabled = true;
         }
 
-        completedList.innerHTML = requests.map(function (request) {
-            const safeId = escapeHTML(request.id);
-            const safeName = escapeHTML(request.name);
-            const safePhone = escapeHTML(request.phone);
-            const safeService = escapeHTML(serviceName(request.service));
-            const safeDate = escapeHTML(formatDate(request.preferredDate));
-            const safeCompleted = escapeHTML(
-                formatDateTime(request.completedAt)
+        try {
+            const { data, error } = await db
+                .from("laundry_requests")
+                .select("*")
+                .order("created_at", { ascending: false });
+
+            if (error) {
+                console.error("Dashboard loading error:", error);
+
+                showAdminMessage(
+                    "Could not load requests. Please check your connection and refresh.",
+                    "error"
+                );
+
+                requestList.innerHTML = renderEmptyMessage(
+                    "Requests could not be loaded."
+                );
+
+                if (completedList) {
+                    completedList.innerHTML = "";
+                }
+
+                return;
+            }
+
+            const requests = data || [];
+
+            const incomingRequests = requests.filter(function (request) {
+                return request.status === "new";
+            });
+
+            const completedRequests = requests.filter(function (request) {
+                return request.status === "completed";
+            });
+
+            const today = getLocalDate();
+
+            const completedToday = completedRequests.filter(function (request) {
+                if (!request.completed_at) {
+                    return false;
+                }
+
+                const completedDate = new Date(request.completed_at);
+
+                if (Number.isNaN(completedDate.getTime())) {
+                    return false;
+                }
+
+                const localCompletedDate =
+                    completedDate.getFullYear() + "-" +
+                    String(completedDate.getMonth() + 1).padStart(2, "0") + "-" +
+                    String(completedDate.getDate()).padStart(2, "0");
+
+                return localCompletedDate === today;
+            });
+
+            if (newCount) {
+                newCount.textContent = incomingRequests.length;
+            }
+
+            if (completedCount) {
+                completedCount.textContent = completedToday.length;
+            }
+
+            requestList.innerHTML = incomingRequests.length
+                ? incomingRequests.map(function (request) {
+                    return renderRequestCard(request, false);
+                }).join("")
+                : renderEmptyMessage("There are no new laundry requests.");
+
+            if (completedList) {
+                completedList.innerHTML = completedRequests.length
+                    ? completedRequests.map(function (request) {
+                        return renderRequestCard(request, true);
+                    }).join("")
+                    : renderEmptyMessage("No completed requests yet.");
+            }
+
+            showAdminMessage(
+                `Requests loaded successfully. ${incomingRequests.length} new and ${completedRequests.length} completed.`
             );
+        } catch (error) {
+            console.error("Dashboard error:", error);
 
-            return `
-                <article class="request-card">
-                    <h3>${safeName}</h3>
-                    <p class="request-date">
-                        Completed: ${safeCompleted}
-                    </p>
-
-                    <div class="request-details">
-                        <div class="request-detail">
-                            <strong>Mobile number</strong>
-                            <span>${safePhone}</span>
-                        </div>
-
-                        <div class="request-detail">
-                            <strong>Service</strong>
-                            <span>${safeService}</span>
-                        </div>
-
-                        <div class="request-detail">
-                            <strong>Preferred date</strong>
-                            <span>${safeDate}</span>
-                        </div>
-                    </div>
-
-                    <div class="request-actions">
-                        <span class="completed-badge">Completed</span>
-
-                        <button
-                            type="button"
-                            class="button button-secondary"
-                            data-delete-id="${safeId}"
-                        >
-                            Delete Request
-                        </button>
-                    </div>
-                </article>
-            `;
-        }).join("");
+            showAdminMessage(
+                "An unexpected error occurred while loading requests.",
+                "error"
+            );
+        } finally {
+            if (refreshButton) {
+                refreshButton.disabled = false;
+            }
+        }
     }
 
-    // MARK REQUEST AS COMPLETED
-
-    requestList.addEventListener("click", function (event) {
-        const button = event.target.closest("[data-complete-id]");
+    // Handle both buttons using one delegated event listener.
+    async function handleRequestAction(event) {
+        const button = event.target.closest("button[data-action]");
 
         if (!button) {
             return;
         }
 
-        const requestId = button.dataset.completeId;
-        const requests = getRequests();
+        const action = button.dataset.action;
+        const requestId = button.dataset.id;
 
-        const request = requests.find(function (item) {
-            return String(item.id) === String(requestId);
-        });
-
-        if (!request) {
-            adminMessage.textContent =
-                "The request could not be found. Please refresh the dashboard.";
+        if (!requestId) {
             return;
         }
 
-        const confirmed = window.confirm(
-            `Mark the laundry request for ${request.name} as completed?`
-        );
+        if (action === "delete") {
+            const confirmed = window.confirm(
+                "Are you sure you want to delete this laundry request? This cannot be undone."
+            );
 
-        if (!confirmed) {
-            return;
+            if (!confirmed) {
+                return;
+            }
         }
 
-        request.status = "Completed";
-        request.completedAt = new Date().toISOString();
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = action === "complete"
+            ? "Updating..."
+            : "Deleting...";
 
-        if (!saveRequests(requests)) {
-            adminMessage.textContent =
-                "The change could not be saved. Please try again.";
-            return;
+        try {
+            let result;
+
+            if (action === "complete") {
+                result = await db
+                    .from("laundry_requests")
+                    .update({
+                        status: "completed",
+                        completed_at: new Date().toISOString()
+                    })
+                    .eq("id", requestId);
+            } else if (action === "delete") {
+                result = await db
+                    .from("laundry_requests")
+                    .delete()
+                    .eq("id", requestId);
+            } else {
+                return;
+            }
+
+            if (result.error) {
+                console.error("Request action error:", result.error);
+
+                showAdminMessage(
+                    "The request could not be updated. Please try again.",
+                    "error"
+                );
+
+                button.disabled = false;
+                button.textContent = originalText;
+                return;
+            }
+
+            showAdminMessage(
+                action === "complete"
+                    ? "Request marked as completed."
+                    : "Request deleted successfully."
+            );
+
+            await renderDashboard();
+        } catch (error) {
+            console.error("Request action error:", error);
+
+            showAdminMessage(
+                "Something went wrong. Please try again.",
+                "error"
+            );
+
+            button.disabled = false;
+            button.textContent = originalText;
         }
-
-        adminMessage.textContent = "Request marked as completed.";
-        renderDashboard();
-    });
-
-    // DELETE REQUEST FROM EITHER SECTION
-
-    function handleDeleteRequest(event) {
-        const button = event.target.closest("[data-delete-id]");
-
-        if (!button) {
-            return;
-        }
-
-        const requestId = button.dataset.deleteId;
-        const requests = getRequests();
-
-        const request = requests.find(function (item) {
-            return String(item.id) === String(requestId);
-        });
-
-        if (!request) {
-            adminMessage.textContent =
-                "The request could not be found. Please refresh the dashboard.";
-            return;
-        }
-
-        const confirmed = window.confirm(
-            `Are you sure you want to permanently delete the request for ${request.name}? This action cannot be undone.`
-        );
-
-        if (!confirmed) {
-            return;
-        }
-
-        const updatedRequests = requests.filter(function (item) {
-            return String(item.id) !== String(requestId);
-        });
-
-        if (!saveRequests(updatedRequests)) {
-            adminMessage.textContent =
-                "The request could not be deleted. Please try again.";
-            return;
-        }
-
-        adminMessage.textContent =
-            `The request for ${request.name} has been deleted.`;
-
-        renderDashboard();
     }
 
-    requestList.addEventListener("click", handleDeleteRequest);
-    completedList.addEventListener("click", handleDeleteRequest);
+    requestList.addEventListener("click", handleRequestAction);
 
-    // REFRESH DASHBOARD
+    if (completedList) {
+        completedList.addEventListener("click", handleRequestAction);
+    }
 
-    refreshButton.addEventListener("click", function () {
-        adminMessage.textContent = "Dashboard refreshed.";
-        renderDashboard();
-    });
+    if (refreshButton) {
+        refreshButton.addEventListener("click", renderDashboard);
+    }
 
     renderDashboard();
 }
 
-// START PAGE FEATURES
+// ==================================================
+// START THE CORRECT PAGE FEATURES
+// ==================================================
 
 document.addEventListener("DOMContentLoaded", function () {
     setupBookingForm();
