@@ -1,39 +1,61 @@
+
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>SariSpin Owner Dashboard</title>
+
     <link rel="stylesheet" href="style.css">
+
+    <!-- Supabase library must load before script.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="script.js" defer></script>
 </head>
 
 <body class="admin-page">
 
+    <!-- Navigation -->
     <header class="admin-navbar">
-        <a class="logo" href="index.html">SariSpin<span>.</span></a>
+        <a class="logo" href="index.html">
+            SariSpin<span>.</span>
+        </a>
 
         <div class="admin-nav-right">
             <span>Owner Dashboard</span>
-            <a href="index.html" class="back-link">View Website ↗</a>
+            <a href="index.html" class="back-link">
+                View Website ↗
+            </a>
         </div>
     </header>
 
     <main class="dashboard-container">
+
+        <!-- Dashboard Heading -->
         <section class="dashboard-heading">
             <div>
                 <p class="eyebrow">SARISPIN MANAGEMENT</p>
                 <h1>Owner Dashboard</h1>
-                <p>Review requests and keep track of completed laundry services.</p>
+                <p>
+                    Review customer requests and keep track of completed
+                    laundry services.
+                </p>
             </div>
 
-            <button type="button" id="refreshRequests" class="button button-secondary">
+            <button
+                type="button"
+                id="refreshRequests"
+                class="button button-secondary"
+            >
                 ↻ Refresh
             </button>
         </section>
 
+        <!-- Summary Cards -->
         <section class="stats-grid">
+
             <article class="stat-card">
                 <p>Incoming Requests</p>
                 <h2 id="newCount">0</h2>
@@ -43,43 +65,74 @@
             <article class="stat-card">
                 <p>Completed Today</p>
                 <h2 id="completedCount">0</h2>
-                <span>Marked completed today</span>
+                <span>Requests marked completed today</span>
             </article>
+
         </section>
 
-        <p id="adminMessage" class="admin-message" role="status"></p>
+        <!-- Dashboard Status Message -->
+        <p
+            id="adminMessage"
+            class="admin-message"
+            role="status"
+            aria-live="polite"
+        >
+            Loading requests...
+        </p>
 
+        <!-- Incoming Requests -->
         <section class="dashboard-section">
+
             <div class="dashboard-section-heading">
                 <div>
                     <h2>Incoming Requests</h2>
-                    <p>Review the details and contact customers using your phone.</p>
+                    <p>
+                        Review the details and contact customers using your phone.
+                    </p>
                 </div>
             </div>
 
             <div id="requestList" class="request-list">
                 <p class="empty-state">Loading requests...</p>
             </div>
+
         </section>
 
+        <!-- Completed Requests -->
         <section class="dashboard-section completed-heading">
+
             <div class="dashboard-section-heading">
                 <div>
-                    <h2>Completed Today</h2>
-                    <p>Requests your family has marked as completed today.</p>
+                    <h2>Completed Requests</h2>
+                    <p>
+                        Review laundry requests that have been marked as completed.
+                    </p>
                 </div>
             </div>
 
             <div id="completedList" class="request-list">
                 <p class="empty-state">Loading completed requests...</p>
             </div>
+
         </section>
+
     </main>
 
+    <!-- Footer -->
     <footer class="footer dashboard-footer">
-        <a class="logo footer-logo" href="index.html">SariSpin<span>.</span></a>
+        <a class="logo footer-logo" href="index.html">
+            SariSpin<span>.</span>
+        </a>
+
         <p>Keep your laundry service organized.</p>
-        <p><a href="privacy.html">Privacy Policy</a></p>
+
+        <p>
+            <a href="privacy.html">Privacy Policy</a>
+        </p>
+
+        <p class="footer-bottom">
+            © 2026 SariSpin Laundry Shop
+        </p>
     </footer>
 
 </body>
